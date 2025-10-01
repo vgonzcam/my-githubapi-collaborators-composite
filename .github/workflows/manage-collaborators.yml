@@ -42,7 +42,7 @@ jobs:
     permissions:
       contents: write
     env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN_GRAINED }}
+      GITHUB_TOKEN: ${{ secrets.VGC_GITHUB_TOKEN_GRAINED }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -58,7 +58,7 @@ jobs:
     permissions:
       contents: write
     env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN_GRAINED }}
+      GITHUB_TOKEN: ${{ secrets.VGC_GITHUB_TOKEN_GRAINED }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -76,7 +76,7 @@ jobs:
     permissions:
       contents: write
     env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN_GRAINED }}
+      GITHUB_TOKEN: ${{ secrets.VGC_GITHUB_TOKEN_GRAINED }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
