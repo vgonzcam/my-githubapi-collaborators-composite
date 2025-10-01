@@ -1,0 +1,78 @@
+name: 'List Repository Collaborators'
+description: 'Lists all collaborators for a given repository'
+
+inputs:
+  repository:
+    description: 'Target repository in the format "owner/repo"'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: List collaborators
+      shell: bash
+      env:
+        REPO: ${{ inputs.repository }}
+      run: |
+        echo "================================================"
+        echo "🔍 LIST COLLABORATORS"
+        echo "================================================"
+        echo "📂 Repository: $REPO"
+        echo "🔗 API Endpoint: https://api.github.com/repos/$REPO/collaborators"
+        echo "================================================"
+        echo ""
+        
+        echo "🚀 Sending GET request..."
+        RESPONSE=$(curl -s -w "\n%{http_code}" -X GET \
+          -H "Authorization: Bearer $GITHUB_TOKEN" \
+          -H "Accept: application/vnd.github+json" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
+          "https://api.github.com/repos/$REPO/collaborators")
+        
+        HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+        BODY=$(echo "$RESPONSE" | head -n -1)
+        
+        echo "📡 HTTP Status Code: $HTTP_CODE"
+        echo ""
+        
+        if [[ "$HTTP_CODE" == "200" ]]; then
+          echo "✅ Successfully retrieved collaborators"
+          echo ""
+          echo "================================================"
+          echo "👥 COLLABORATORS LIST"
+          echo "================================================"
+          echo "$BODY" | jq -r '.[] | "👤 Username: \(.login)\n   Role: \(.role_name // "N/A")\n   Permissions: \(.permissions | to_entries | map(select(.value == true) | .key) | join(", "))\n   URL: \(.html_url)\n"'
+          echo "================================================"
+          TOTAL=$(echo "$BODY" | jq '. | length')
+          echo "📊 Total collaborators: $TOTAL"
+          echo "================================================"
+        elif [[ "$HTTP_CODE" == "404" ]]; then
+          echo "❌ Repository not found (HTTP 404)"
+          echo ""
+          echo "🔍 Possible causes:"
+          echo "   - Repository name is incorrect"
+          echo "   - Repository doesn't exist"
+          echo "   - Token doesn't have access to this repository"
+          echo "   - Repository is private and token lacks permissions"
+          echo ""
+          echo "📄 Response body:"
+          echo "$BODY" | jq '.' 2>/dev/null || echo "$BODY"
+          exit 1
+        elif [[ "$HTTP_CODE" == "403" ]]; then
+          echo "❌ Forbidden (HTTP 403)"
+          echo ""
+          echo "🔍 Possible causes:"
+          echo "   - Token doesn't have required permissions"
+          echo "   - API rate limit exceeded"
+          echo "   - Token is invalid or expired"
+          echo ""
+          echo "📄 Response body:"
+          echo "$BODY" | jq '.' 2>/dev/null || echo "$BODY"
+          exit 1
+        else
+          echo "❌ Failed to list collaborators (HTTP $HTTP_CODE)"
+          echo ""
+          echo "📄 Response body:"
+          echo "$BODY" | jq '.' 2>/dev/null || echo "$BODY"
+          exit 1
+        fi
