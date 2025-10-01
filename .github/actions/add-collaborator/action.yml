@@ -1,0 +1,108 @@
+name: 'Add Repository Collaborator'
+description: 'Adds a collaborator to a repository with specified permissions'
+
+inputs:
+  repository:
+    description: 'Target repository in the format "owner/repo"'
+    required: true
+  collaborator:
+    description: 'GitHub username of the collaborator to add'
+    required: true
+  permission:
+    description: 'Permission level (pull, triage, push, maintain, admin)'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Add collaborator with specified permission
+      shell: bash
+      env:
+        REPO: ${{ inputs.repository }}
+        COLLABORATOR: ${{ inputs.collaborator }}
+        PERMISSION: ${{ inputs.permission }}
+      run: |
+        echo "================================================"
+        echo "➕ ADD COLLABORATOR"
+        echo "================================================"
+        echo "📂 Repository: $REPO"
+        echo "👤 Collaborator: $COLLABORATOR"
+        echo "🔐 Permission: $PERMISSION"
+        echo "🔗 API Endpoint: https://api.github.com/repos/$REPO/collaborators/$COLLABORATOR"
+        echo "================================================"
+        echo ""
+        
+        echo "🚀 Sending PUT request..."
+        RESPONSE=$(curl -s -w "\n%{http_code}" -X PUT \
+          -H "Authorization: Bearer $GITHUB_TOKEN" \
+          -H "Accept: application/vnd.github+json" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
+          -d "{\"permission\": \"$PERMISSION\"}" \
+          "https://api.github.com/repos/$REPO/collaborators/$COLLABORATOR")
+        
+        HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+        BODY=$(echo "$RESPONSE" | head -n -1)
+        
+        echo "📡 HTTP Status Code: $HTTP_CODE"
+        echo ""
+        
+        if [[ "$HTTP_CODE" == "201" ]]; then
+          echo "✅ Collaborator invitation sent successfully"
+          echo ""
+          echo "📧 Invitation Details:"
+          echo "$BODY" | jq '.' 2>/dev/null || echo "$BODY"
+          echo ""
+          echo "ℹ️  The collaborator will receive an email invitation"
+          echo "ℹ️  Permission level: $PERMISSION"
+        elif [[ "$HTTP_CODE" == "204" ]]; then
+          echo "✅ Collaborator permissions updated successfully"
+          echo ""
+          echo "ℹ️  User was already a collaborator"
+          echo "ℹ️  Updated permission level: $PERMISSION"
+        elif [[ "$HTTP_CODE" == "404" ]]; then
+          echo "❌ Not Found (HTTP 404)"
+          echo ""
+          echo "🔍 Possible causes:"
+          echo "   - Repository '$REPO' doesn't exist or is incorrect"
+          echo "   - User '$COLLABORATOR' doesn't exist"
+          echo "   - Token doesn't have admin access to the repository"
+          echo "   - Repository format is incorrect (should be 'owner/repo')"
+          echo ""
+          echo "💡 Troubleshooting steps:"
+          echo "   1. Verify repository name: $REPO"
+          echo "   2. Verify collaborator username: $COLLABORATOR"
+          echo "   3. Check token has 'admin:repo_hook' or 'repo' scope"
+          echo "   4. Ensure you have admin rights on the repository"
+          echo ""
+          echo "📄 Response body:"
+          echo "$BODY" | jq '.' 2>/dev/null || echo "$BODY"
+          exit 1
+        elif [[ "$HTTP_CODE" == "403" ]]; then
+          echo "❌ Forbidden (HTTP 403)"
+          echo ""
+          echo "🔍 Possible causes:"
+          echo "   - Token doesn't have admin permissions on the repository"
+          echo "   - Organization security policies prevent adding collaborators"
+          echo "   - API rate limit exceeded"
+          echo ""
+          echo "📄 Response body:"
+          echo "$BODY" | jq '.' 2>/dev/null || echo "$BODY"
+          exit 1
+        elif [[ "$HTTP_CODE" == "422" ]]; then
+          echo "❌ Unprocessable Entity (HTTP 422)"
+          echo ""
+          echo "🔍 Possible causes:"
+          echo "   - Invalid permission level"
+          echo "   - Collaborator username is invalid"
+          echo "   - Validation error in request"
+          echo ""
+          echo "📄 Response body:"
+          echo "$BODY" | jq '.' 2>/dev/null || echo "$BODY"
+          exit 1
+        else
+          echo "❌ Failed to add collaborator (HTTP $HTTP_CODE)"
+          echo ""
+          echo "📄 Response body:"
+          echo "$BODY" | jq '.' 2>/dev/null || echo "$BODY"
+          exit 1
+        fi
