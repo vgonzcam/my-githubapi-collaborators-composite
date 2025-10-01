@@ -1,0 +1,112 @@
+name: TPT-GEN-CollaboratorsIACActions
+run-name: ${{ inputs.action }} -> ${{ inputs.repository}}
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "What would you like to do?"
+        required: true
+        type: choice
+        default: "invite-collaborators"
+        options:
+          - invite-collaborators
+          - remove-collaborators
+          - list-collaborators
+      repository:
+        description: |
+          Target repository in the format "owner/repo".
+          Example: "owner/repo"
+        required: true
+        type: string
+      collaborator:
+        description: |
+          GitHub username of the collaborator to add/remove.
+        required: false
+        type: string
+      permission:
+        description: "Permission level for the collaborator"
+        required: false
+        type: choice
+        options:
+          - pull
+          - triage
+          - push
+          - maintain
+          - admin
+
+jobs:
+  list-collaborators:
+    if: inputs.action == 'list-collaborators'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN_GRAINED }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: List collaborators
+        uses: ./.github/actions/list-collaborators
+        with:
+          repository: ${{ inputs.repository }}
+
+  invite-collaborators:
+    if: inputs.action == 'invite-collaborators'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN_GRAINED }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Add collaborator
+        uses: ./.github/actions/add-collaborator
+        with:
+          repository: ${{ inputs.repository }}
+          collaborator: ${{ inputs.collaborator }}
+          permission: ${{ inputs.permission }}
+
+  remove-collaborators:
+    if: inputs.action == 'remove-collaborators'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN_GRAINED }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Remove collaborator
+        uses: ./.github/actions/remove-collaborator
+        with:
+          repository: ${{ inputs.repository }}
+          collaborator: ${{ inputs.collaborator }}
+
+  summary:
+    needs: [list-collaborators, invite-collaborators, remove-collaborators]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate Summary
+        run: |
+          echo "### Collaborator Management Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Action** | ${{ inputs.action }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Repository** | \`${{ inputs.repository }}\` |" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ inputs.action }}" != "list-collaborators" ]]; then
+            echo "| **Collaborator** | @${{ inputs.collaborator }} |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [[ "${{ inputs.action }}" == "invite-collaborators" ]]; then
+            echo "| **Permission** | ${{ inputs.permission }} |" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Workflow completed at:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
